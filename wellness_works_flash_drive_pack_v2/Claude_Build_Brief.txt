@@ -1,0 +1,93 @@
+CLAUDE BUILD BRIEF — WELLNESS APP V1
+
+Role:
+You are helping build a mobile wellness app MVP.
+
+Goal:
+Create a simple, clean, human-feeling wellness app for the general public.
+The app should help users check in daily, receive personalised support, and feel that the app learns what works for them over time.
+
+Core promise:
+A wellness app that learns your patterns, adapts to real life, and helps you build better days through small personalised actions.
+
+Audience:
+General public, especially people dealing with stress, low energy, poor routines, inconsistency, and feeling stuck.
+
+V1 must include:
+1. Sign up / login
+2. Onboarding
+3. Daily check-in
+4. Home dashboard
+5. AI coach
+6. Progress screen
+7. Settings / subscriptions
+
+Onboarding fields:
+- name or nickname
+- main goal
+- stress level
+- energy level
+- sleep quality
+- preferred coaching tone
+
+Daily check-in fields:
+- mood
+- stress
+- energy
+- sleep
+- habit completion
+- short reflection note
+- timestamp
+
+Personalisation:
+Start with rules-based personalisation, not advanced ML.
+Examples:
+- poor sleep + high stress = recovery day
+- low mood + low energy = gentle day
+- high energy + low stress = momentum day
+
+AI coach:
+- supportive, practical, concise
+- uses user profile + recent check-ins
+- returns one reflection and one to three suggested actions
+- no medical diagnosis
+
+Free vs paid:
+Free:
+- onboarding
+- daily check-in
+- basic score
+- simple daily focus
+- limited AI access
+- 7-day progress
+
+Premium:
+- unlimited AI coach
+- personalised daily plans
+- deeper pattern insights
+- weekly reports
+- full history
+- premium tools
+
+Tech preference:
+- Flutter front end
+- Supabase back end
+- OpenAI Responses API
+
+Build order:
+1. UI shell and navigation
+2. Auth
+3. Onboarding
+4. Check-in storage
+5. Home dashboard
+6. Rules engine
+7. AI coach
+8. Progress / summaries
+9. Subscriptions
+10. Polish and testing
+
+Principles:
+- keep it simple
+- make it emotionally useful
+- personalisation beats feature overload
+- shipping V1 matters more than perfection
