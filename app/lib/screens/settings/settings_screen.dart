@@ -1,20 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app_constants.dart';
+import '../../auth/auth_controller.dart';
 import '../../theme/app_tokens.dart';
 
 /// Settings screen — placeholder list of section rows.
 ///
 /// Phase 7 wires real toggles + actions (logout, delete account, etc.).
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
@@ -35,7 +33,10 @@ class SettingsScreen extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('Log out'),
-              onTap: () => context.go('/'),
+              onTap: () async {
+                await ref.read(authControllerProvider).signOut();
+                // Router redirect handles bouncing back to '/'.
+              },
             ),
             const Divider(),
             _SectionLabel('Coaching'),

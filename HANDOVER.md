@@ -13,15 +13,16 @@ A mass-market Android wellness app (working title: **Daily Tend** — chosen 202
 ## What's done ✅
 
 - **Project brief + plan** agreed and written: [`docs/plan.md`](docs/plan.md)
-- **Supabase backend code — complete (not yet deployed)**
-  - Schema + Row-Level Security + trigger functions + auth-trigger + views: [`supabase/migrations/001_init.sql`](supabase/migrations/001_init.sql)
-  - Edge Function `generate_coach_reply` (privacy-safe, OpenAI Responses API): [`supabase/functions/generate_coach_reply/index.ts`](supabase/functions/generate_coach_reply/index.ts)
-  - Edge Function `nightly_summariser` (scheduled, template-based, no OpenAI): [`supabase/functions/nightly_summariser/index.ts`](supabase/functions/nightly_summariser/index.ts)
-  - Deploy + local-dev README: [`supabase/README.md`](supabase/README.md)
-- **Supabase project created**
-  - Project URL: `https://fpgadotiobvesybkeemz.supabase.co`
+- **Supabase backend — fully deployed (2026-05-03)**
+  - Project URL: `https://fpgadotiobvesybkeemz.supabase.co` (project ref `fpgadotiobvesybkeemz`)
   - Publishable (anon) key wired into [`app/lib/config/supabase_config.dart`](app/lib/config/supabase_config.dart)
-  - Migration **not yet applied**, pg_cron **not yet enabled**, Edge Functions **not yet deployed**, secrets **not yet set**
+  - Migration applied via dashboard SQL editor — 8 tables + RLS + triggers + views confirmed: [`supabase/migrations/001_init.sql`](supabase/migrations/001_init.sql)
+  - `pg_cron` extension enabled in Database → Extensions
+  - Edge Function `generate_coach_reply` deployed via dashboard "Via Editor": [`supabase/functions/generate_coach_reply/index.ts`](supabase/functions/generate_coach_reply/index.ts)
+  - Edge Function `nightly_summariser` deployed via dashboard "Via Editor": [`supabase/functions/nightly_summariser/index.ts`](supabase/functions/nightly_summariser/index.ts)
+  - Secrets `OPENAI_API_KEY` and `OPENAI_MODEL` set in Edge Functions → Secrets
+  - Deploy + local-dev README: [`supabase/README.md`](supabase/README.md)
+  - **Caveat:** external probes to `generate_coach_reply` 404 because Supabase's default "Verify JWT" gating rejects requests without a real user-session JWT. Real validation happens once Flutter auth is wired. NOT a deploy bug.
 - **Brand voice + content library — complete**
   - Voice spec with all 4 coaching-tone variants: [`docs/voice.md`](docs/voice.md)
   - Full UI copy library (uses `{app_name}` placeholder): [`docs/copy_library.md`](docs/copy_library.md)
@@ -33,30 +34,36 @@ A mass-market Android wellness app (working title: **Daily Tend** — chosen 202
   - Machine-readable tokens (Design Tokens CG format): [`docs/design/tokens.json`](docs/design/tokens.json)
   - Material You dynamic-colour mapping: [`docs/design/material_you.md`](docs/design/material_you.md)
   - Accessibility spec + contrast matrices: [`docs/design/accessibility.md`](docs/design/accessibility.md)
-- **Flutter app scaffolded** in [`app/`](app/)
+- **Flutter app — auth, onboarding persistence, and daily check-in submit all working end-to-end (2026-05-17)**
   - Package name: `three_zones` (neutral, kept stable across any rename)
   - Single source of truth for the brand name: [`app/lib/app_constants.dart`](app/lib/app_constants.dart) (`kAppName = 'Daily Tend'`)
-  - Dependencies pinned in [`app/pubspec.yaml`](app/pubspec.yaml): `flutter_riverpod ^3.3.1`, `go_router ^17.2.2`, `google_fonts ^8.1.0`, `supabase_flutter ^2.12.4`
+  - Dependencies pinned in [`app/pubspec.yaml`](app/pubspec.yaml): `flutter_riverpod ^3.3.1`, `go_router ^17.2.2`, `google_fonts ^8.1.0`, `google_sign_in ^7.2.0`, `supabase_flutter ^2.12.4`
   - Riverpod root + Supabase init + GoRouter wired in [`app/lib/main.dart`](app/lib/main.dart)
   - Design tokens translated to Dart: [`app/lib/theme/app_tokens.dart`](app/lib/theme/app_tokens.dart) (honey primary + deep-teal secondary + frozen zone accents, light & dark) and theme assembled in [`app/lib/theme/app_theme.dart`](app/lib/theme/app_theme.dart)
   - White-to-teal gradient background applied app-wide via [`app/lib/widgets/gradient_background.dart`](app/lib/widgets/gradient_background.dart)
-  - Routes: welcome → 6-step onboarding (name → goal → stress → energy → sleep → tone) → 4-tab shell (Home / Progress / Coach / Settings) with FAB-modal check-in. See [`app/lib/routing/app_router.dart`](app/lib/routing/app_router.dart) and screens under [`app/lib/screens/`](app/lib/screens/)
+  - **Auth:** Riverpod providers in [`app/lib/auth/auth_providers.dart`](app/lib/auth/auth_providers.dart) (`signedInProvider`, `currentUserProvider`, stream from `onAuthStateChange`); `AuthController` in [`app/lib/auth/auth_controller.dart`](app/lib/auth/auth_controller.dart) covers email/password sign-up + sign-in, native Google Sign-In via `signInWithIdToken`, and sign-out. Sign-up/sign-in UI in [`app/lib/screens/auth/sign_in_screen.dart`](app/lib/screens/auth/sign_in_screen.dart); Google button wired on [`welcome_screen.dart`](app/lib/screens/welcome/welcome_screen.dart). Tested end-to-end on Android emulator including Google 2FA prompt flow.
+  - **Profile:** model in [`app/lib/data/profile.dart`](app/lib/data/profile.dart) (Dart `CoachingTone` + `Zone` enums mirror Postgres enums with `wireName` round-trip). Repository at [`app/lib/data/profile_repository.dart`](app/lib/data/profile_repository.dart) + `currentProfileProvider`.
+  - **Router gating:** [`app/lib/routing/app_router.dart`](app/lib/routing/app_router.dart) is now a Riverpod provider with a redirect that gates routes on auth state + `profile.onboarding_complete`. A `_RouterRefresh` ChangeNotifier wakes GoRouter when either fires.
+  - **Onboarding persistence:** screens 1/2/6 (`name`, `goal`, `tone`) write to `profiles` on each Continue; the tone screen also flips `onboarding_complete = true`. Stress/energy/sleep screens are still UI-only — they'll become the first daily check-in in a follow-up. See screens under [`app/lib/screens/onboarding/`](app/lib/screens/onboarding/) and content data in [`app/lib/data/onboarding_content.dart`](app/lib/data/onboarding_content.dart).
+  - **Check-in submit:** repository at [`app/lib/data/checkin_repository.dart`](app/lib/data/checkin_repository.dart) does `upsert` on `(user_id, local_date)` so re-submits replace today's row rather than erroring. Modal at [`app/lib/screens/checkin/check_in_modal.dart`](app/lib/screens/checkin/check_in_modal.dart) collects + submits + shows a spinner during the network round-trip.
+  - **Home dashboard** ([`app/lib/screens/home/home_dashboard_screen.dart`](app/lib/screens/home/home_dashboard_screen.dart)) reads `currentProfileProvider` for a personalised greeting and `todayCheckinProvider` to swap "Today's check-in is waiting" for "[Zone] · today ✓" once the user has checked in. Three zone-action cards still placeholder until rules engine lands.
+  - **Settings → Log out** wired to `AuthController.signOut()` ([`app/lib/screens/settings/settings_screen.dart`](app/lib/screens/settings/settings_screen.dart)); router redirect bounces back to Welcome.
+  - **Android manifest** ([`app/android/app/src/main/AndroidManifest.xml`](app/android/app/src/main/AndroidManifest.xml)) adds `android.permission.INTERNET` and sets `android:label="Daily Tend"`.
+  - **Web OAuth client ID** baked into [`app/lib/config/supabase_config.dart`](app/lib/config/supabase_config.dart) as `googleWebClientId`. Safe to ship — only the matching client *secret* is sensitive and lives in Supabase only.
   - Reusable widgets: [`five_point_scale.dart`](app/lib/widgets/five_point_scale.dart), [`zone_balance_hero.dart`](app/lib/widgets/zone_balance_hero.dart), [`zone_segmented.dart`](app/lib/widgets/zone_segmented.dart), [`onboarding_scaffold.dart`](app/lib/widgets/onboarding_scaffold.dart)
-  - Onboarding content data layer: [`app/lib/data/onboarding_content.dart`](app/lib/data/onboarding_content.dart)
 - **CI** — GitHub Actions workflow for analyse + test + AAB build: [`.github/workflows/android.yml`](.github/workflows/android.yml)
 - **Developer setup** checklist: [`SETUP.md`](SETUP.md)
 
 ## What's pending 🟡
 
-1. **Apply the migration** to the Supabase project (`fpgadotiobvesybkeemz`) — via dashboard SQL editor or `supabase db push`.
-2. **Enable pg_cron** in Supabase Dashboard → Database → Extensions (the `CREATE EXTENSION` in the migration is not enough on its own).
-3. **Deploy Edge Functions** (`generate_coach_reply`, `nightly_summariser`) per [`supabase/README.md`](supabase/README.md).
-4. **Set Supabase secrets**: `OPENAI_API_KEY`, `OPENAI_MODEL` (founder picked the GPT-5 family — see open decisions).
-5. **Wire Supabase auth** into the Flutter app — onboarding currently flows through screens but does not yet persist a profile, check-in, or coach turn against the live backend.
-6. **Connect onboarding completion** to the `profiles` table and gate the 4-tab shell on auth state.
-7. **Implement check-in submit** against `check_ins` (with Drift offline cache).
-8. **Implement coach screen** against `generate_coach_reply` Edge Function.
-9. **Continue phases 4–7** of [`docs/plan.md`](docs/plan.md) — progress charts, settings, reminders/widget, Health Connect, polish.
+1. **Drift offline cache for check-ins** — locked tech decision but not yet implemented. Add `drift` + codegen, schema mirroring `check_ins`, sync queue, connectivity detection, write-through; replaces direct Supabase write in [`CheckinRepository`](app/lib/data/checkin_repository.dart). ~1.5-2 hours of focused work.
+2. **Implement coach screen** against the `generate_coach_reply` Edge Function — POST with the user's session JWT in the Authorization header. UI shell exists at [`app/lib/screens/coach/coach_screen.dart`](app/lib/screens/coach/coach_screen.dart) but is static.
+3. **Capture stress/energy/sleep as first check-in** — those three onboarding screens currently just navigate. They should either write a check-in on completion of onboarding, or be removed in favour of just prompting the first proper check-in via the FAB.
+4. **Schedule `nightly_summariser`** via `pg_cron` — needs a SQL snippet plus the service-role key in Supabase Vault per [`supabase/README.md`](supabase/README.md).
+5. **Rules engine for daily plan** — derive `day_type` + three zone-action strings from today's check-in. Home dashboard's "Three small things" are still static placeholders.
+6. **Continue phases 4–7** of [`docs/plan.md`](docs/plan.md) — progress charts, settings polish, reminders/widget, Health Connect.
+7. **Re-enable Supabase email confirmation + configure Site URL + redirect templates** before any production sign-ups (currently OFF for dev convenience).
+8. **Production signing config** — release keystore + register its SHA-1 with a new Google Cloud Android OAuth client before Play Store submission. Debug keystore is dev-only.
 
 ## Decisions locked by the founder
 
@@ -108,14 +115,14 @@ A mass-market Android wellness app (working title: **Daily Tend** — chosen 202
 
 ## Immediate next actions (for whoever picks this up)
 
-1. Confirm Flutter + JDK 17 + Android SDK are working (`flutter doctor` clean) — see [`SETUP.md`](SETUP.md).
-2. Apply [`supabase/migrations/001_init.sql`](supabase/migrations/001_init.sql) to the existing Supabase project.
-3. Enable pg_cron in the Supabase dashboard.
-4. Deploy Edge Functions and set secrets (`OPENAI_API_KEY`, `OPENAI_MODEL`).
-5. Wire Supabase auth into the Flutter app and gate the 4-tab shell on auth state.
-6. Persist onboarding answers to `profiles`.
-7. Implement check-in submit against `check_ins` with offline cache.
-8. Continue phases 4–7 of [`docs/plan.md`](docs/plan.md).
+Backend live since 2026-05-03; auth + onboarding-persistence + check-in submit landed 2026-05-17. To pick this up:
+
+1. Launch the AVD: `"%LOCALAPPDATA%\Android\Sdk\emulator\emulator.exe" -avd daily_tend_pixel -gpu host`, then from `app/` run `flutter run -d emulator-5554`.
+2. **Wire the coach screen** ([`app/lib/screens/coach/coach_screen.dart`](app/lib/screens/coach/coach_screen.dart)) to call `generate_coach_reply` — POST `{ user_message }` with `Authorization: Bearer <user session JWT>`; render `reply` + `actions` from the response. Persist the chat history to `coach_messages` (the Edge Function already does this server-side; the screen just needs to read `coach_messages` to render the transcript on cold-start).
+3. **Implement Drift offline cache** for check-ins per locked decision — replaces the direct Supabase write in [`CheckinRepository`](app/lib/data/checkin_repository.dart) with a write-through queue.
+4. **Decide what stress/energy/sleep onboarding does** — write a first check-in, or remove those screens.
+5. **Schedule `nightly_summariser`** via `pg_cron` (see [`supabase/README.md`](supabase/README.md)).
+6. **Phases 4–7** of [`docs/plan.md`](docs/plan.md) — rules engine for daily plan, progress charts, reminders/widget, Health Connect.
 
 ## Gotchas
 

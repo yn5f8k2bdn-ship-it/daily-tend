@@ -18,4 +18,14 @@ class SupabaseConfig {
   static const String url = 'https://fpgadotiobvesybkeemz.supabase.co';
   static const String publishableKey =
       'sb_publishable_Cz2IrmRbc69Z8MhTPVmrUA_GbgqbKNK';
+
+  /// Google Cloud Console OAuth 2.0 "Web application" client ID.
+  /// Required by `signInWithIdToken` to verify the Google ID token
+  /// returned by `google_sign_in`. The Android OAuth client (with
+  /// package id + SHA-1) is registered separately and does not need
+  /// to be referenced from Dart.
+  /// Safe to ship in the client — the Client ID is public; only the
+  /// matching Client Secret is sensitive (lives in Supabase only).
+  static const String googleWebClientId =
+      '304653422207-9ae4jrbmfc3lp5djri1ehhjrrtreajuc.apps.googleusercontent.com';
 }

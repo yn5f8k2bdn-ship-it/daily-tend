@@ -1,11 +1,70 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../app_constants.dart';
+import '../../auth/auth_controller.dart';
+import '../../config/supabase_config.dart';
 import '../../theme/app_tokens.dart';
 
-class WelcomeScreen extends StatelessWidget {
+class WelcomeScreen extends ConsumerStatefulWidget {
   const WelcomeScreen({super.key});
+
+  @override
+  ConsumerState<WelcomeScreen> createState() => _WelcomeScreenState();
+}
+
+class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
+  bool _googleBusy = false;
+
+  Future<void> _signInWithGoogle() async {
+    if (SupabaseConfig.googleWebClientId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Google sign-in isn\'t configured yet. Use email for now.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _googleBusy = true);
+    try {
+      await ref.read(authControllerProvider).signInWithGoogle();
+      // Router redirect handles where to go next.
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled) return;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Google sign-in failed: ${e.description ?? e.code}'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Something went wrong: $e'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _googleBusy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,20 +98,19 @@ class WelcomeScreen extends StatelessWidget {
               ),
               const Spacer(),
               FilledButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Google sign-in lands in Phase 1.'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.g_mobiledata, size: 28),
+                onPressed: _googleBusy ? null : _signInWithGoogle,
+                icon: _googleBusy
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.g_mobiledata, size: 28),
                 label: const Text('Continue with Google'),
               ),
               const SizedBox(height: AppSpacing.md),
               FilledButton.tonal(
-                onPressed: () => context.go('/onboarding/name'),
+                onPressed: _googleBusy ? null : () => context.push('/auth'),
                 style: FilledButton.styleFrom(
                   backgroundColor: cs.primaryContainer,
                   foregroundColor: cs.onPrimaryContainer,

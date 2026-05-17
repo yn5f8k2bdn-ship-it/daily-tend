@@ -1,19 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/checkin_repository.dart';
+import '../../data/profile.dart';
+import '../../data/profile_repository.dart';
 import '../../theme/app_tokens.dart';
 
 /// Today's-focus dashboard.
 ///
-/// Static skeleton — once Phase 1 auth + Phase 2 check-in persistence land,
-/// the focus zone, day_type, and three zone-action strings come from the
-/// rules engine output for the user's most recent check-in.
-class HomeDashboardScreen extends StatelessWidget {
+/// Reflects the user's most recent check-in. Once the rules engine lands
+/// (Phase 4), the day_type + three zone-action strings will derive from
+/// that check-in. For now they're a static placeholder.
+class HomeDashboardScreen extends ConsumerWidget {
   const HomeDashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+
+    final profile = ref.watch(currentProfileProvider).maybeWhen(
+          data: (p) => p,
+          orElse: () => null,
+        );
+    final checkin = ref.watch(todayCheckinProvider).maybeWhen(
+          data: (c) => c,
+          orElse: () => null,
+        );
+
+    final greeting = profile?.displayName?.trim().isNotEmpty == true
+        ? 'Morning, ${profile!.displayName!.trim()}.'
+        : 'Morning.';
 
     return Scaffold(
       body: SafeArea(
@@ -25,7 +42,7 @@ class HomeDashboardScreen extends StatelessWidget {
             AppSpacing.huge,
           ),
           children: [
-            Text('Morning.', style: theme.textTheme.headlineMedium),
+            Text(greeting, style: theme.textTheme.headlineMedium),
             const SizedBox(height: AppSpacing.xs),
             Text(
               'One thing at a time today.',
@@ -35,39 +52,7 @@ class HomeDashboardScreen extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.xl),
 
-            // Today's focus card
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              decoration: BoxDecoration(
-                color: cs.primaryContainer,
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Today's focus",
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: cs.onPrimaryContainer.withValues(alpha: 0.75),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'Self · Gentle day',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      color: cs.onPrimaryContainer,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'Pick one thing below. Ignore the rest.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: cs.onPrimaryContainer.withValues(alpha: 0.85),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _FocusCard(checkin: checkin),
             const SizedBox(height: AppSpacing.xl),
 
             Text(
@@ -99,6 +84,82 @@ class HomeDashboardScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _FocusCard extends StatelessWidget {
+  const _FocusCard({required this.checkin});
+
+  final CheckIn? checkin;
+
+  String _zoneLabel(Zone z) {
+    switch (z) {
+      case Zone.self:
+        return 'Self';
+      case Zone.purpose:
+        return 'Purpose';
+      case Zone.lovedOnes:
+        return 'Loved Ones';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    final hasCheckin = checkin != null;
+    final headline = hasCheckin
+        ? '${_zoneLabel(checkin!.focusZone)} · today'
+        : "Today's check-in is waiting";
+    final caption = hasCheckin
+        ? 'Pick one thing below. Ignore the rest.'
+        : 'Tap the Check in button. A minute is plenty.';
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: cs.primaryContainer,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                "Today's focus",
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: cs.onPrimaryContainer.withValues(alpha: 0.75),
+                ),
+              ),
+              if (hasCheckin) ...[
+                const SizedBox(width: AppSpacing.sm),
+                Icon(
+                  Icons.check_circle,
+                  size: 14,
+                  color: cs.onPrimaryContainer.withValues(alpha: 0.75),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            headline,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: cs.onPrimaryContainer,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            caption,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: cs.onPrimaryContainer.withValues(alpha: 0.85),
+            ),
+          ),
+        ],
       ),
     );
   }

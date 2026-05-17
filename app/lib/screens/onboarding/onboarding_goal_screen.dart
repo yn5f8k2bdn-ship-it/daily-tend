@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/onboarding_content.dart';
+import '../../data/profile_repository.dart';
 import '../../theme/app_tokens.dart';
 import '../../widgets/onboarding_scaffold.dart';
 
@@ -11,16 +14,38 @@ import '../../widgets/onboarding_scaffold.dart';
 /// originally single-select per `docs/content/goals.md` §1; widened to allow
 /// 2–3 picks so the rules engine can blend zone affinities (e.g. "more
 /// energy" + "show up for family" weights both Self and Loved Ones).
-class OnboardingGoalScreen extends StatefulWidget {
+class OnboardingGoalScreen extends ConsumerStatefulWidget {
   const OnboardingGoalScreen({super.key});
 
   @override
-  State<OnboardingGoalScreen> createState() => _OnboardingGoalScreenState();
+  ConsumerState<OnboardingGoalScreen> createState() =>
+      _OnboardingGoalScreenState();
 }
 
-class _OnboardingGoalScreenState extends State<OnboardingGoalScreen> {
+class _OnboardingGoalScreenState extends ConsumerState<OnboardingGoalScreen> {
   static const _maxSelections = 3;
   final Set<String> _selected = {};
+  bool _saving = false;
+
+  Future<void> _continue() async {
+    if (_saving || _selected.isEmpty) return;
+    setState(() => _saving = true);
+    try {
+      await ref
+          .read(profileRepositoryProvider)
+          .updateGoal(_selected.join(','));
+      ref.invalidate(currentProfileProvider);
+      if (!mounted) return;
+      context.go('/onboarding/stress');
+    } on PostgrestException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
   void _toggle(String id) {
     setState(() {
@@ -59,8 +84,8 @@ class _OnboardingGoalScreenState extends State<OnboardingGoalScreen> {
       subhead: 'One, two, or three — whatever fits. You can change them later.',
       helper: "We'll weight what we suggest around the ones you pick.",
       primaryLabel: 'Continue',
-      canContinue: _selected.isNotEmpty,
-      onContinue: () => context.go('/onboarding/stress'),
+      canContinue: _selected.isNotEmpty && !_saving,
+      onContinue: _continue,
       skipDestination: '/onboarding/stress',
       skipLabel: "I'll decide later",
       body: Column(

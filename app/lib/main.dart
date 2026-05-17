@@ -17,18 +17,19 @@ Future<void> main() async {
   runApp(const ProviderScope(child: ThreeZonesApp()));
 }
 
-class ThreeZonesApp extends StatelessWidget {
+class ThreeZonesApp extends ConsumerWidget {
   const ThreeZonesApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(appRouterProvider);
     return MaterialApp.router(
       title: kAppName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.system,
-      routerConfig: appRouter,
+      routerConfig: router,
       builder: (context, child) => GradientBackground(
         child: child ?? const SizedBox.shrink(),
       ),

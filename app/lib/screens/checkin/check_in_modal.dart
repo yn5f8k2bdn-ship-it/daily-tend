@@ -1,40 +1,88 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../data/checkin_repository.dart';
 import '../../data/onboarding_content.dart';
+import '../../data/profile.dart' as model;
 import '../../theme/app_tokens.dart';
 import '../../widgets/five_point_scale.dart';
 import '../../widgets/zone_segmented.dart';
 
 /// Modal bottom-sheet daily check-in.
 ///
-/// Per design system §8 + copy library §3. Static for now — no persistence.
-/// Phase 2 wires Drift cache + Supabase write-through.
-class CheckInModal extends StatefulWidget {
+/// Submits to Supabase `check_ins` via `CheckinRepository`. Idempotent on
+/// `(user_id, local_date)` — re-opening and resubmitting on the same day
+/// overwrites today's row rather than erroring.
+class CheckInModal extends ConsumerStatefulWidget {
   const CheckInModal({super.key});
 
   @override
-  State<CheckInModal> createState() => _CheckInModalState();
+  ConsumerState<CheckInModal> createState() => _CheckInModalState();
 }
 
-class _CheckInModalState extends State<CheckInModal> {
+class _CheckInModalState extends ConsumerState<CheckInModal> {
   int? _mood;
   int? _stress;
   int? _energy;
   int? _sleep;
   String? _focusZone;
   final _noteController = TextEditingController();
+  bool _submitting = false;
 
   bool get _canSubmit =>
       _mood != null &&
       _stress != null &&
       _energy != null &&
       _sleep != null &&
-      _focusZone != null;
+      _focusZone != null &&
+      !_submitting;
 
   @override
   void dispose() {
     _noteController.dispose();
     super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_canSubmit) return;
+    final zone = model.Zone.fromWire(_focusZone);
+    if (zone == null) return;
+
+    setState(() => _submitting = true);
+    try {
+      await ref.read(checkinRepositoryProvider).submitToday(
+            mood: _mood!,
+            stress: _stress!,
+            energy: _energy!,
+            sleep: _sleep!,
+            focusZone: zone,
+            reflectionNote: _noteController.text,
+          );
+      ref.invalidate(todayCheckinProvider);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Done. Your day's on the home screen. No need to hurry.",
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on PostgrestException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Something went wrong: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
@@ -166,24 +214,20 @@ class _CheckInModalState extends State<CheckInModal> {
                   AppSpacing.lg,
                 ),
                 child: FilledButton(
-                  onPressed: _canSubmit ? () => _submit(context) : null,
-                  child: const Text('Save check-in'),
+                  onPressed: _canSubmit ? _submit : null,
+                  child: _submitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Save check-in'),
                 ),
               ),
             ],
           ),
         );
       },
-    );
-  }
-
-  void _submit(BuildContext context) {
-    Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Done. Your day's on the home screen. No need to hurry."),
-        behavior: SnackBarBehavior.floating,
-      ),
     );
   }
 }
